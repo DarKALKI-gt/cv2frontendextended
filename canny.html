@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV2Frontend - Canny & Grayscale (Stable)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MediaPipe Camera Utils are essential for the new stable loop -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <!-- OpenCV.js is loaded asynchronously -->
+    <script src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady();" async></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: #0D1117;
+            color: #C9D1D9;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 960px;
+            margin: auto;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            aspect-ratio: 16 / 9;
+        }
+        #output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1); /* Creates a natural mirror effect */
+        }
+        #input_video { display: none; }
+        
+        .feature-btn, .back-btn {
+            transition: all 0.3s ease;
+            border: 1px solid #30363d;
+        }
+        .feature-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .feature-btn.active {
+            background-color: #00A9A5;
+            color: white;
+            border-color: #00A9A5;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+            transform: scale(1.05);
+        }
+        .loader {
+            border: 5px solid #30363d;
+            border-top: 5px solid #00A9A5;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center min-h-screen p-4 sm:p-6">
+
+    <header class="text-center mb-6 w-full">
+        <h1 class="text-5xl sm:text-6xl font-bold mb-1 text-white tracking-widest">OpenCV Filters</h1>
+        <p class="text-lg text-gray-400">Grayscale & Canny Edge Detection</p>
+    </header>
+
+    <main class="w-full max-w-5xl">
+        <div id="loading-indicator" class="text-center text-gray-400">
+            <div class="loader"></div>
+            <p>Initializing Camera...</p>
+        </div>
+        
+        <div id="app-content" class="hidden">
+            <div class="video-container bg-black">
+                <video id="input_video" playsinline></video>
+                <canvas id="output_canvas"></canvas>
+            </div>
+            
+            <div class="flex flex-wrap justify-center gap-2 sm:gap-3 mt-6">
+                <a href="./index.html" class="back-btn bg-gray-800 px-4 py-2 rounded-lg hover:bg-gray-700"> &larr; Back to Main App</a>
+                <button class="feature-btn bg-gray-800 px-4 py-2 rounded-lg active" data-feature="None">Normal</button>
+                <button id="grayscale-btn" class="feature-btn bg-gray-800 px-4 py-2 rounded-lg" data-feature="Grayscale" disabled>Grayscale</button>
+                <button id="canny-btn" class="feature-btn bg-gray-800 px-4 py-2 rounded-lg" data-feature="Canny" disabled>Canny Edge</button>
+            </div>
+             <p id="opencv-loading-status" class="text-center text-sm text-gray-500 mt-2">Loading OpenCV Library...</p>
+        </div>
+    </main>
+
+    <script type="module">
+        const videoElement = document.getElementById('input_video');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const mainContent = document.getElementById('app-content');
+        const grayscaleBtn = document.getElementById('grayscale-btn');
+        const cannyBtn = document.getElementById('canny-btn');
+        const opencvStatus = document.getElementById('opencv-loading-status');
+
+        let cvReady = false;
+        let activeFeature = 'None';
+        
+        // This function is called by the `onload` attribute in the OpenCV script tag.
+        function onOpenCvReady() {
+            if (window.cv && typeof window.cv.Mat === 'function') {
+                console.log('OpenCV.js is ready.');
+                cvReady = true;
+                grayscaleBtn.disabled = false;
+                cannyBtn.disabled = false;
+                opencvStatus.textContent = "OpenCV Ready!";
+                setTimeout(() => { opencvStatus.style.display = 'none'; }, 2000);
+            } else {
+                setTimeout(onOpenCvReady, 100);
+            }
+        }
+        window.onOpenCvReady = onOpenCvReady;
+
+        // --- STABLE RENDERING LOGIC ---
+        
+        function onFrame() {
+            // Set canvas size to match video
+            canvasElement.width = videoElement.videoWidth;
+            canvasElement.height = videoElement.videoHeight;
+            
+            // Draw the raw video frame to the canvas first. This is the base layer.
+            canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+
+            // If a CV feature is active and OpenCV is ready, process the frame from the canvas.
+            if (cvReady && (activeFeature === 'Grayscale' || activeFeature === 'Canny')) {
+                try {
+                    // Create a Mat from the current canvas content. THIS IS THE KEY FIX.
+                    let src = cv.imread(canvasElement);
+                    let dst = new cv.Mat();
+
+                    if (activeFeature === 'Grayscale') {
+                        cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+                    } else if (activeFeature === 'Canny') {
+                        cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+                        cv.Canny(dst, dst, 50, 100, 3, false);
+                    }
+
+                    // Display the processed result back onto the canvas
+                    cv.imshow(canvasElement, dst);
+
+                    // CRUCIAL: Always delete Mat objects to prevent memory leaks
+                    src.delete();
+                    dst.delete();
+                } catch (err) {
+                    console.error("OpenCV processing error:", err);
+                }
+            }
+        }
+
+        // --- INITIALIZATION ---
+        
+        // Use MediaPipe's highly stable Camera utility to manage the video feed.
+        const camera = new window.Camera(videoElement, {
+            onFrame: onFrame, // Set our main function as the callback for every frame
+            width: 1280,
+            height: 720
+        });
+
+        camera.start()
+            .then(() => {
+                loadingIndicator.style.display = 'none';
+                mainContent.classList.remove('hidden');
+            })
+            .catch(err => {
+                console.error("Camera Error:", err);
+                loadingIndicator.innerHTML = `<p class="text-red-500">Error: Could not access camera. Please grant permission and refresh.</p>`;
+                loadingIndicator.style.display = 'block';
+                mainContent.classList.add('hidden');
+            });
+
+        // --- UI EVENT LISTENERS ---
+        document.querySelectorAll('.feature-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (btn.disabled) return;
+                document.querySelector('.feature-btn.active').classList.remove('active');
+                btn.classList.add('active');
+                activeFeature = btn.dataset.feature;
+                console.log("Active feature set to:", activeFeature);
+            });
+        });
+
+    </script>
+</body>
+</html>

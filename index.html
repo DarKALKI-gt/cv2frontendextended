@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV2Frontend - by Utkarsh Tripathi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: #0D1117;
+            color: #C9D1D9;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 960px;
+            margin: auto;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            aspect-ratio: 16 / 9;
+        }
+        #output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1); /* Mirror effect */
+        }
+        #input_video { display: none; }
+        .nav-btn, .feature-btn, .link-btn, .rec-btn {
+            transition: all 0.3s ease;
+            border: 1px solid #30363d;
+            text-align: center;
+        }
+        .nav-btn.active {
+            background-color: #00A9A5;
+            color: white;
+            border-color: #00A9A5;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+        .feature-btn.active {
+            background-color: #00A9A5;
+            transform: scale(1.05);
+            border-color: #00A9A5;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+        }
+        .page {
+            display: none;
+            animation: fadeIn 0.6s ease-out;
+        }
+        .page.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #intruder-alert {
+            display: none;
+            animation: pulse-red 1.5s infinite;
+        }
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); }
+            50% { box-shadow: 0 0 30px rgba(255, 0, 0, 1); }
+        }
+        .loader {
+            border: 5px solid #30363d;
+            border-top: 5px solid #00A9A5;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Recording Button Style */
+        .rec-btn.recording {
+            background-color: #E53E3E; /* Red */
+            color: white;
+            border-color: #E53E3E;
+            animation: pulse-rec 1.2s infinite;
+        }
+        @keyframes pulse-rec {
+            0% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(229, 62, 62, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0); }
+        }
+
+        /* NEW: Styles for the "Escape Reality" button */
+        #btn-escape {
+            border-color: #ef4444; /* red-500 */
+            color: #fca5a5; /* red-300 */
+            animation: flame-aura 2s infinite alternate;
+        }
+        #btn-escape:hover {
+            border-color: #f87171; /* red-400 */
+            background-color: rgba(239, 68, 68, 0.1);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+        }
+        @keyframes flame-aura {
+            from {
+                box-shadow: 0 0 5px rgba(239, 68, 68, 0.4), 0 0 10px rgba(239, 68, 68, 0.3), inset 0 0 5px rgba(239, 68, 68, 0.2);
+            }
+            to {
+                box-shadow: 0 0 10px rgba(239, 68, 68, 0.6), 0 0 20px rgba(239, 68, 68, 0.4), inset 0 0 10px rgba(239, 68, 68, 0.3);
+            }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center min-h-screen p-4 sm:p-6">
+
+    <header class="text-center mb-6 w-full">
+        <h1 class="text-5xl sm:text-6xl font-bold mb-1 text-white tracking-widest">CV2Frontend</h1>
+        <p class="text-lg text-gray-400">Developed by Utkarsh Tripathi</p>
+    </header>
+
+    <nav class="flex flex-wrap justify-center gap-2 sm:gap-4 mb-8 bg-gray-900/50 backdrop-blur-sm p-2 rounded-xl border border-gray-700">
+        <button class="nav-btn px-4 py-2 rounded-lg active" data-page="home">Home</button>
+        <button class="nav-btn px-4 py-2 rounded-lg" data-page="filters">Image & Face FX</button>
+        <button class="nav-btn px-4 py-2 rounded-lg" data-page="tracking">Body & Motion AI</button>
+    </nav>
+
+    <main class="w-full max-w-5xl">
+        <div id="home" class="page active text-center">
+            <h2 class="text-3xl font-semibold mb-4 text-cyan-300">Welcome to the Future of Web CV</h2>
+            <p class="text-gray-300 max-w-3xl mx-auto mb-8">
+                This interactive website demonstrates the power of client-side computer vision. All processing happens in your browser, ensuring privacy. Select a category above to begin.
+            </p>
+            <div id="initial-loading" class="text-gray-400">
+                <p>Select a category to start the camera and load AI models.</p>
+            </div>
+        </div>
+        
+        <div id="app-content" class="hidden">
+            <div class="video-container bg-black">
+                <video id="input_video" playsinline></video>
+                <canvas id="output_canvas"></canvas>
+                <div id="intruder-alert" class="absolute top-4 right-4 bg-red-600/80 text-white font-bold p-3 rounded-lg z-20 text-center">
+                    <p class="text-lg">ALERT</p>
+                    <p class="text-sm">INTRUDER DETECTED</p>
+                </div>
+            </div>
+            <div id="recorder-controls" class="flex justify-center gap-4 mt-4"></div>
+            <div id="feature-controls"></div>
+        </div>
+    </main>
+
+    <script type="module">
+        const state = { 
+            activePage: 'home', 
+            activeFeature: 'None', 
+            lastFaceResults: null,
+            lastPoseResults: null,
+            curlCounter: 0,
+            curlStage: 'DOWN',
+            camera: null,
+            isLoopRunning: false,
+            isRecording: false,
+            mediaRecorder: null,
+            recordedChunks: []
+        };
+
+        const loadedScripts = {};
+        const models = { faceMesh: null, pose: null };
+
+        const videoElement = document.getElementById('input_video');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const loadingIndicator = document.getElementById('initial-loading');
+        const mainContent = document.getElementById('app-content');
+        const intruderAlert = document.getElementById('intruder-alert');
+        const featureControls = document.getElementById('feature-controls');
+        const recorderControls = document.getElementById('recorder-controls');
+
+        function startRecording() {
+            if (state.isRecording || !canvasElement) return;
+
+            const stream = canvasElement.captureStream(30);
+            state.mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+            
+            state.recordedChunks = [];
+            state.mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    state.recordedChunks.push(event.data);
+                }
+            };
+
+            state.mediaRecorder.onstop = () => {
+                const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `CV2Frontend_Recording_${new Date().getTime()}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            };
+
+            state.mediaRecorder.start();
+            state.isRecording = true;
+            updateRecorderUI();
+        }
+
+        function stopRecording() {
+            if (!state.isRecording || !state.mediaRecorder) return;
+            state.mediaRecorder.stop();
+            state.isRecording = false;
+            updateRecorderUI();
+        }
+
+        function updateRecorderUI() {
+            const startBtn = document.getElementById('start-rec-btn');
+            if (startBtn) {
+                if (state.isRecording) {
+                    startBtn.textContent = 'Stop Recording';
+                    startBtn.classList.add('recording');
+                } else {
+                    startBtn.textContent = 'Start Recording';
+                    startBtn.classList.remove('recording');
+                }
+            }
+        }
+
+        function loadScript(src, isModule = false) {
+            if (loadedScripts[src]) return loadedScripts[src];
+            
+            loadedScripts[src] = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = true;
+                if (isModule) script.type = 'module';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+            return loadedScripts[src];
+        }
+
+        async function initializeFeatureModels(feature) {
+            loadingIndicator.innerHTML = `<div class="loader"></div><p>Loading models for ${feature}...</p>`;
+            loadingIndicator.style.display = 'block';
+
+            try {
+                if (['FaceMesh'].includes(feature) && !models.faceMesh) {
+                    await Promise.all([
+                        loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js", true),
+                        loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js", true)
+                    ]);
+                    models.faceMesh = new window.FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+                    models.faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
+                    models.faceMesh.onResults(results => { state.lastFaceResults = results; });
+                }
+                if (['BodyTracker', 'IntruderDetection'].includes(feature) && !models.pose) {
+                    await Promise.all([
+                        loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js", true),
+                        loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js", true)
+                    ]);
+                    models.pose = new window.Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+                    models.pose.setOptions({modelComplexity: 0, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
+                    models.pose.onResults(results => { state.lastPoseResults = results; });
+                }
+            } finally {
+                loadingIndicator.style.display = 'none';
+            }
+        }
+
+        async function gameLoop() {
+            if (!state.isLoopRunning) return;
+
+            if (videoElement.readyState >= 2) {
+                const feature = state.activeFeature;
+                if (models.faceMesh && feature === 'FaceMesh') await models.faceMesh.send({image: videoElement});
+                if (models.pose && ['BodyTracker', 'IntruderDetection'].includes(feature)) await models.pose.send({image: videoElement});
+
+                canvasElement.width = videoElement.videoWidth;
+                canvasElement.height = videoElement.videoHeight;
+                
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+                
+                if (state.lastFaceResults) drawFaceFeatures();
+                if (state.lastPoseResults) drawPoseFeatures();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function drawFaceFeatures() {
+            if (!state.lastFaceResults || !state.lastFaceResults.multiFaceLandmarks || state.activeFeature !== 'FaceMesh') return;
+            canvasCtx.save();
+            for (const landmarks of state.lastFaceResults.multiFaceLandmarks) {
+                window.drawConnectors(canvasCtx, landmarks, window.FACEMESH_TESSELATION, {color: 'rgba(0, 255, 255, 0.5)', lineWidth: 1});
+            }
+            canvasCtx.restore();
+        }
+        
+        function calculateAngle(a, b, c) {
+            const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+            let angle = Math.abs(radians * 180.0 / Math.PI);
+            return angle > 180.0 ? 360 - angle : angle;
+        }
+
+        function drawPoseFeatures() {
+            if (!state.lastPoseResults || !state.lastPoseResults.poseLandmarks) return;
+            const landmarks = state.lastPoseResults.poseLandmarks;
+            
+            canvasCtx.save();
+            if (state.activeFeature === 'BodyTracker') {
+                window.drawConnectors(canvasCtx, landmarks, window.POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
+                window.drawLandmarks(canvasCtx, landmarks, {color: '#FF0000', radius: 5});
+
+                const shoulder = landmarks[window.POSE_LANDMARKS.LEFT_SHOULDER];
+                const elbow = landmarks[window.POSE_LANDMARKS.LEFT_ELBOW];
+                const wrist = landmarks[window.POSE_LANDMARKS.LEFT_WRIST];
+
+                if(shoulder && elbow && wrist && shoulder.visibility > 0.5 && elbow.visibility > 0.5 && wrist.visibility > 0.5) {
+                    const angle = calculateAngle(shoulder, elbow, wrist);
+                    if (angle > 160) state.curlStage = "DOWN";
+                    if (angle < 40 && state.curlStage === 'DOWN') {
+                        state.curlStage = "UP";
+                        state.curlCounter++;
+                    }
+                    canvasCtx.scale(-1, 1);
+                    canvasCtx.fillStyle = "white";
+                    canvasCtx.font = "bold 40px Rajdhani";
+                    canvasCtx.fillText(`REPS: ${state.curlCounter}`, -canvasElement.width + 20, 50);
+                    canvasCtx.fillText(`STAGE: ${state.curlStage}`, -canvasElement.width + 20, 100);
+                }
+            } else if (state.activeFeature === 'IntruderDetection') {
+                const safeZone = { x: 0.2, y: 0.1, width: 0.6, height: 0.8 };
+                const sz_x_mirrored = (1 - safeZone.x - safeZone.width) * canvasElement.width;
+                const sz_w = safeZone.width * canvasElement.width;
+                let intruder = false;
+                for (const lm of landmarks) {
+                    if (lm.visibility > 0.5) {
+                        const lx = lm.x * canvasElement.width;
+                        if (lx < sz_x_mirrored || lx > sz_x_mirrored + sz_w) { intruder = true; break; }
+                    }
+                }
+                canvasCtx.strokeStyle = intruder ? '#FF0000' : '#00FF00';
+                canvasCtx.lineWidth = 5;
+                canvasCtx.strokeRect(sz_x_mirrored, safeZone.y * canvasElement.height, sz_w, safeZone.height * canvasElement.height);
+                intruderAlert.style.display = intruder ? 'block' : 'none';
+            }
+            canvasCtx.restore();
+        }
+
+        const pageFeatures = {
+            filters: `
+                <button class="feature-btn bg-gray-800 px-4 py-2 rounded-lg active" data-feature="None">Normal</button>
+                <button class="feature-btn bg-gray-800 px-4 py-2 rounded-lg" data-feature="FaceMesh">Face Mesh</button>
+                <a href="./canny.html" class="link-btn bg-gray-800 px-4 py-2 rounded-lg">Grayscale / Canny</a>
+            `,
+            tracking: `
+                <button class="feature-btn bg-gray-800 px-4 py-2 rounded-lg active" data-feature="None">Normal</button>
+                <button class="feature-btn bg-gray-800 px-4 py-2 rounded-lg" data-feature="BodyTracker">Bicep Curl Counter</button>
+                <button class="feature-btn bg-gray-800 px-4 py-2 rounded-lg" data-feature="IntruderDetection">Intruder Detection</button>
+                <!-- MODIFIED: Added id for styling and changed class -->
+                <a href="./backgrounds.html" id="btn-escape" class="control-btn px-4 py-2 rounded-lg">Let's Escape Reality?</a>
+                `
+        };
+        
+        async function setupPage(page) {
+            if (page === 'home') {
+                mainContent.classList.add('hidden');
+                document.getElementById('home').classList.add('active');
+                if (state.camera) {
+                    if (state.isRecording) stopRecording();
+                    state.camera.stop();
+                    state.isLoopRunning = false;
+                    state.camera = null;
+                }
+                return;
+            }
+            
+            document.getElementById('home').classList.remove('active');
+            mainContent.classList.remove('hidden');
+            
+            recorderControls.innerHTML = `<button id="start-rec-btn" class="rec-btn bg-gray-800 px-4 py-2 rounded-lg">Start Recording</button>`;
+            document.getElementById('start-rec-btn').addEventListener('click', () => {
+                state.isRecording ? stopRecording() : startRecording();
+            });
+
+            featureControls.innerHTML = `<div class="flex flex-wrap justify-center gap-2 sm:gap-3 mt-6">${pageFeatures[page]}</div>`;
+            addFeatureButtonListeners();
+            
+            if (!state.camera) {
+                loadingIndicator.style.display = 'block';
+                loadingIndicator.innerHTML = `<div class="loader"></div><p>Starting Camera...</p>`;
+                try {
+                    await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js", true);
+                    state.camera = new window.Camera(videoElement, {
+                        onFrame: async () => {}, // Manual loop control
+                        width: 1280, height: 720
+                    });
+                    await state.camera.start();
+                    videoElement.play();
+                    loadingIndicator.style.display = 'none';
+                    if(!state.isLoopRunning) {
+                        state.isLoopRunning = true;
+                        gameLoop();
+                    }
+                } catch(err) {
+                     loadingIndicator.innerHTML = `<p class="text-red-500">Error: Could not access camera. Please grant permission and refresh.</p>`;
+                }
+            }
+        }
+
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelector('.nav-btn.active').classList.remove('active');
+                btn.classList.add('active');
+                state.activePage = btn.dataset.page;
+                setupPage(state.activePage);
+            });
+        });
+
+        function addFeatureButtonListeners(){
+            document.querySelectorAll('.feature-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    document.querySelectorAll('.feature-btn.active').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const feature = btn.dataset.feature;
+                    state.activeFeature = feature;
+                    await initializeFeatureModels(feature);
+
+                    intruderAlert.style.display = 'none';
+                    state.curlCounter = 0;
+                    state.curlStage = 'DOWN';
+                    state.lastFaceResults = null;
+                    state.lastPoseResults = null;
+                });
+            });
+        }
+    </script>
+</body>
+</html>
